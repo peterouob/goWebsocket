@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Go_Websocket</title>
+</head>
+<body>
+    <div class="center">
+        <h1>Chat</h1>
+        <form id="chatroom-selection">
+            <label for="chatroom">ChatRoom:</label>
+            <input type="text" id="chatroom" name="chatroom"><br><br>
+            <input type="submit" value="Change Chatroom">
+        </form>
+        <!--            record message from websovket-->
+        <textarea class="messagearea" id="chatmessage" readonly name="chatmessages" cols="30" rows="10" placeholder="welocome to chatroom"></textarea>
+        <br>
+        <form id="chatroom-message">
+            <label for="chatmessage">MESSAGE</label>
+            <input type="text" id="message" name="message">
+            <br><br>
+            <input type="submit"  value="sendmessage">
+        </form>
+
+        <script>
+            let selectedChat = "general";
+            function changeChatRoom (){
+                let newChat = document.getElementById("chatroom");
+                if(newChat !== null && newChat.value !== selectedChat){
+                    console.log(newChat);
+                }
+                return false;
+            }
+            function sendMessage(){
+                var newMessage = document.getElementById("message");
+                if(newMessage !== null ){
+                    console.log(newMessage);
+                }
+                return false;
+            }
+
+            window.onload = function(){
+                document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
+                document.getElementById("chatroom-message").onsubmit = sendMessage;
+
+                if(window["WebSocket"]){
+                    console.log("support websocket")
+                    //connect to websocket
+                    conn = new WebSocket("ws://"+document.location.host+"/ws")
+                }else{
+                    alert("not support websocket")
+                }
+            }
+        </script>
+    </div>
+</body>
+</html>
