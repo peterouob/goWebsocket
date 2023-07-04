@@ -11,7 +11,7 @@ func main() {
 }
 
 func setupApi() {
-	manger := Manager{}
+	manger := NewManager()
 	http.Handle("/", http.FileServer(http.Dir("./front"))) //加載前端
 	http.HandleFunc("/ws", manger.serveWs)
 }
