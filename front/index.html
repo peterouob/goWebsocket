@@ -8,12 +8,12 @@
     <div class="center">
         <h1>Chat</h1>
         <h3 id="connection-header">Connect to websocket: false</h3>
-
         <form id="chatroom-selection">
-            <label for="chatroom">ChatRoom:</label>
+            <label for="chatroom" id="chat-header">ChatRoom:</label>
             <input type="text" id="chatroom" name="chatroom"><br><br>
             <input type="submit" value="Change Chatroom">
         </form>
+        <br><br>
         <!--            record message from websovket-->
         <textarea class="messagearea" id="chatmessage" readonly name="chatmessages" cols="30" rows="10" placeholder="welocome to chatroom"></textarea>
         <br>
@@ -44,13 +44,52 @@
                     this.payload = payload;
                 }
             }
+
+            class SendMessageEvent {
+                constructor(message ,from) {
+                    this.message = message;
+                    this.from = from;
+                }
+            }
+
+            class NewMessageEvent {
+                constructor(message ,from,sent) {
+                    this.message = message;
+                    this.from = from;
+                    this.sent = sent;
+                }
+            }
+
+            class ChangeChatRoomEvent {
+                constructor(name) {
+                    this.name = name;
+                }
+            }
+
+            function changeChatRoom(){
+                var newchat = document.getElementById("chatroom")
+                //不希望垃圾郵件更改到同一個聊天室，只能到新的
+                if(newchat !== null && newchat.value !== selectedChat){
+                    selectedChat = newchat.value;
+                    header = document.getElementById("chat-header").innerHTML = "Currently in chatroom :" + selectedChat;
+                    let changeEvent = new ChangeChatRoomEvent(selectedChat)
+                    sendEvent("change_room",changeEvent)
+                    textarea = document.getElementById("chatmessage");
+                    textarea.innerHTML = `You changed new chatroom ${selectedChat}`;
+                }
+                //如果沒有return false將會重定向
+                return false;
+            }
+
             function routeEvent(event){
                 if(event.type === undefined){
                     alert("no type field in the event");
                 }
                 switch (event.type){
                     case "new_message":
-                        console.log("new Message");
+                        // console.log("new Message");
+                        const messageEvent = Object.assign(new NewMessageEvent,event.payload)
+                        appendChatMessage(messageEvent)
                         break;
                     default:
                         alert("not supported this type");
@@ -58,24 +97,27 @@
                 }
             }
 
+            function appendChatMessage(messageEvent){
+                let date = new Date(messageEvent.sent);
+                const formattedMessage = `${date.toLocaleString()} : ${messageEvent.message}`;
+                textarea = document.getElementById("chatmessage");
+                textarea.innerHTML = textarea.innerHTML + "\n" + formattedMessage;
+                textarea.scrollTop = textarea.scrollHeight;
+            }
+
             function sendEvent(eventName,payload){
                 const event = new Event(eventName,payload);
                 conn.send(JSON.stringify(event))
             }
 
-            function changeChatRoom (){
-                let newChat = document.getElementById("chatroom");
-                if(newChat !== null && newChat.value !== selectedChat){
-                    console.log(newChat);
-                }
-                return false;
-            }
             function sendMessage(){
                 let newMessage = document.getElementById("message");
                 if(newMessage !== null ){
                     // console.log(newMessage);
                     // conn.send(newMessage.value);
-                    sendEvent("send_message", newMessage)
+                    //peter到時候需案自行更改
+                    let outgoingEvent = new SendMessageEvent(newMessage.value,"test")
+                    sendEvent("send_message",outgoingEvent);
                 }
                 return false;
             }
@@ -106,7 +148,7 @@
                 if(window["WebSocket"]){
                     console.log("support websocket");
                     //connect to websocket
-                    let conn = new WebSocket("ws://"+document.location.host+"/ws?otp="+otp);
+                    conn = new WebSocket("ws://"+document.location.host+"/ws?otp="+otp);
                     //連接到websocket時觸發
                     conn.onopen = function (e){
                         document.getElementById("connection-header").innerText = "Connect to websocket : True";

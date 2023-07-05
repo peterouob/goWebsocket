@@ -19,7 +19,7 @@ type ClientList map[*Client]bool
 type Client struct {
 	connection *websocket.Conn
 	manager    *Manager
-
+	chatroom   string
 	//egress 避免客戶端併發權限，使用一個無緩衝的通道來防止連接同時獲得過多的請求
 	//egress chan []byte
 	egress chan Event
