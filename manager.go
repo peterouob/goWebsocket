@@ -3,12 +3,15 @@ package main
 
 // manager.go // 管理websocket
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
 // 管理websocket
@@ -26,14 +29,18 @@ type Manager struct {
 	clients ClientList
 	//會有很多人同時連接到API，使用互斥鎖保護
 	sync.RWMutex
+
+	otps RetentionMap
+
 	//將type當作key並允許我們獲取事件處理程序
 	handlers map[string]EventHandler
 }
 
 // 工廠模式
-func NewManager() *Manager {
+func NewManager(ctx context.Context) *Manager {
 	m := &Manager{
 		clients:  make(ClientList),
+		otps:     NewRetentionMap(ctx, 5*time.Second),
 		handlers: make(map[string]EventHandler),
 	}
 	m.setupEventHandlers()
@@ -63,6 +70,16 @@ func (m *Manager) routeEvent(event Event, c *Client) error {
 }
 
 func (m *Manager) serveWs(w http.ResponseWriter, r *http.Request) {
+	//驗證OTP是否有效
+	otp := r.URL.Query().Get("otp")
+	if otp == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if !m.otps.VerifyOTP(otp) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	log.Println("new connection")
 	//upgrade regular http connection into websocket
 	conn, err := websocketUpgrade.Upgrade(w, r, nil)
@@ -75,6 +92,37 @@ func (m *Manager) serveWs(w http.ResponseWriter, r *http.Request) {
 	// Start client processing
 	go client.readMessages()
 	go client.writeMessages()
+}
+
+func (m *Manager) loginHandler(w http.ResponseWriter, r *http.Request) {
+	type userLoginRequest struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	var req userLoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	//form
+	if req.Username == "test" && req.Password == "test" {
+		type Response struct {
+			OTP string `json:"otp"`
+		}
+		otp := m.otps.NewOTP()
+		resp := Response{
+			OTP: otp.Key,
+		}
+		data, err := json.Marshal(resp)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+		return
+	}
+	w.WriteHeader(http.StatusUnauthorized)
 }
 
 // 向管理起添加或刪除客戶端
