@@ -40,6 +40,10 @@ func (c *Client) readMessages() {
 		//cleanup connection from client List，幫助我們清理未使用的客戶端
 		c.manager.removeClient(c)
 	}()
+
+	//Jumbo frames
+	c.connection.SetReadLimit(512)
+
 	//當我們接受到pong以前能夠等待的時間
 	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 		log.Println(err)
