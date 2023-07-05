@@ -14,6 +14,8 @@ import (
 // 管理websocket
 var (
 	websocketUpgrade = websocket.Upgrader{
+		//cross
+		CheckOrigin: checkOrigin,
 		//確保用戶不會發送巨大封包
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -89,5 +91,17 @@ func (m *Manager) removeClient(client *Client) {
 	if _, ok := m.clients[client]; ok {
 		client.connection.Close()
 		delete(m.clients, client)
+	}
+}
+
+// Cross Origin
+func checkOrigin(r *http.Request) bool {
+	//true將會連接，false關閉連接
+	origin := r.Header.Get("Origin")
+	switch origin {
+	case "http://localhost:8082":
+		return true
+	default:
+		return false
 	}
 }
