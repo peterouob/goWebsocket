@@ -393,3 +393,55 @@ func (c *Client) writeMessages() {
 	}
 }
 ```
+
+#### 使用event原因
+```text
+WebSocket是一種基於TCP的全雙工通信協議，它提供雙向實時、持久的連接，使得客戶端和服務器可以通過WebSocket進行雙向通信。
+在WebSocket中，消息的發送和接收是異步的，這就需要在服務器端使用事件來區分不同類型的消息。
+通常情況下，WebSocket 會定義一些預定的消息類型，比如聊天消息、命令消息等。當服務器接收到消息時，通過事件判斷消息的類型，然後根據不同的類型執行相應的邏輯。這可以是發送聊天消息消息給其他連接的客戶端，執行一些特定的操作，或者觸發一些事件。
+```
+#### 作用地方
+```text
+在編寫不同的聊天室時，通常會涉及多種類型的消息
+例如用戶發送的聊天消息、系統通知消息、用戶加入或離開聊天室的消息等。這些消息可能具有不同的格式和含義，因此需要使用事件來判斷消息的類型，並根據類型執行相應的邏輯。
+```
+
+### 心跳機制
+- 會向服務端發送ping，目的是為了確保另一端的連接存在
+- 因為websocket依舊走在http協議上，如果閒置過久的話會被中斷，因此會使用ping/pong保持空連接
+- ping/pong屬於客戶端
+- ping給服務端後，前端要pong回應，因為ＲＦＣ告訴我們ping和pong應該自動觸發，現在瀏覽器都會默認為自動
+```go
+var (
+	pongWait     = 10 * time.Second    //發送ping後pong的最多等待時間
+	pingInterval = (pongWait * 9) / 10 //ping每次發送的煎個，如果滿足條件，該職必須低於Pong wait
+)
+
+//發送ＰＩＮＧ
+ticker := time.NewTicker(pingInterval)
+case <-ticker.C:
+log.Println("ping")
+//Send ping to client
+//必須為指定類型，否則前端無法處理
+if err := c.connection.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
+log.Println("write message error", err)
+return
+}
+//ping給服務端後，前端要pong回應，因為ＲＦＣ告訴我們ping和pong應該自動觸發
+}
+
+//接受ＰＯＮＧ
+//當我們接受到pong以前能夠等待的時間
+if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+log.Println(err)
+return
+}
+//觸發pong時處理的handler，每收到pong就會觸發
+c.connection.SetPongHandler(c.pongHandler)
+
+func (c *Client) pongHandler(pongMessage string) error {
+log.Println("pong")
+//接受到pong以後要重置的時間
+return c.connection.SetReadDeadline(time.Now().Add(pongWait))
+}
+```

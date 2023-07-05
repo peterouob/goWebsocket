@@ -4,6 +4,12 @@ import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"log"
+	"time"
+)
+
+var (
+	pongWait     = 10 * time.Second    //發送ping後pong的最多等待時間
+	pingInterval = (pongWait * 9) / 10 //ping每次發送的煎個，如果滿足條件，該職必須低於Pong wait
 )
 
 // ClientList 客戶端列表，上線狀態
@@ -34,7 +40,13 @@ func (c *Client) readMessages() {
 		//cleanup connection from client List，幫助我們清理未使用的客戶端
 		c.manager.removeClient(c)
 	}()
-
+	//當我們接受到pong以前能夠等待的時間
+	if err := c.connection.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		log.Println(err)
+		return
+	}
+	//觸發pong時處理的handler，每收到pong就會觸發
+	c.connection.SetPongHandler(c.pongHandler)
 	for {
 		//payload為負載，類行為byte
 		_, payload, err := c.connection.ReadMessage()
@@ -70,7 +82,8 @@ func (c *Client) writeMessages() {
 	defer func() {
 		c.manager.removeClient(c)
 	}()
-
+	//計時器
+	ticker := time.NewTicker(pingInterval)
 	for {
 		select {
 		case message, ok := <-c.egress:
@@ -91,6 +104,21 @@ func (c *Client) writeMessages() {
 				log.Printf("failed to send message %v:", err)
 			}
 			log.Println("message sent")
+		case <-ticker.C:
+			log.Println("ping")
+			//Send ping to client
+			//必須為指定類型，否則前端無法處理
+			if err := c.connection.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
+				log.Println("write message error", err)
+				return
+			}
+			//ping給服務端後，前端要pong回應，因為ＲＦＣ告訴我們ping和pong應該自動觸發
 		}
 	}
+}
+
+func (c *Client) pongHandler(pongMessage string) error {
+	log.Println("pong")
+	//接受到pong以後要重置的時間
+	return c.connection.SetReadDeadline(time.Now().Add(pongWait))
 }
