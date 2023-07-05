@@ -24,6 +24,32 @@
 
         <script>
             let selectedChat = "general";
+            class Event {
+                //更好的控制用戶發送的訊息
+                constructor(type ,payload) {
+                    this.type = type;
+                    this.payload = payload;
+                }
+            }
+            function routeEvent(event){
+                if(event.type === undefined){
+                    alert("no type field in the event");
+                }
+                switch (event.type){
+                    case "new_message":
+                        console.log("new Message");
+                        break;
+                    default:
+                        alert("not supported this type");
+                        break;
+                }
+            }
+
+            function sendEvent(eventName,payload){
+                const event = new Event(eventName,payload);
+                conn.send(JSON.stringify(event))
+            }
+
             function changeChatRoom (){
                 let newChat = document.getElementById("chatroom");
                 if(newChat !== null && newChat.value !== selectedChat){
@@ -32,10 +58,11 @@
                 return false;
             }
             function sendMessage(){
-                var newMessage = document.getElementById("message");
+                let newMessage = document.getElementById("message");
                 if(newMessage !== null ){
                     // console.log(newMessage);
-                    conn.send(newMessage.value);
+                    // conn.send(newMessage.value);
+                    sendEvent("send_message", newMessage)
                 }
                 return false;
             }
@@ -48,6 +75,12 @@
                     console.log("support websocket")
                     //connect to websocket
                     conn = new WebSocket("ws://"+document.location.host+"/ws")
+                    conn.onmessage = function(e){
+                        // console.log(e)
+                        const eventData = JSON.parse(e.data);
+                        const event = Object.assign(new Event, eventData);
+                        routeEvent(event)
+                    }
                 }else{
                     alert("not support websocket")
                 }
